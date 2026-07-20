@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body { margin: 0; }
+
+.ros-mono { font-variant-numeric: tabular-nums; }
+
+.ros-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.ros-scrollbar::-webkit-scrollbar-thumb { background: #333A52; border-radius: 4px; }
+
+input[type="time"], input[type="date"], input[type="email"] { color-scheme: dark; }
+select { color-scheme: dark; }
+
+@keyframes ros-toast-in { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.ros-toast { animation: ros-toast-in 0.2s ease-out; }
+
+@keyframes ros-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.ros-pulse { animation: ros-pulse 1.6s ease-in-out infinite; }
+
+.ros-surface-btn:hover { background: rgba(255, 255, 255, 0.06); }
+.ros-danger-btn:hover { background: rgba(242, 73, 92, 0.12); color: #F2495C !important; }
+.ros-primary-btn:hover { opacity: 0.9; }
+.ros-insert:hover .ros-insert-line { opacity: 1; }
+.ros-insert:hover .ros-insert-btn { opacity: 1; }
