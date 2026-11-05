@@ -1,3 +1,4 @@
+import { APP_VERSION } from "../lib/version.js";
 import React, { useState } from "react";
 import { Button } from "../components/ui.jsx";
 
@@ -83,7 +84,7 @@ export default function LoginPage({ sendCode, verifyCode }) {
           )}
         </form>
 
-        <p className="text-sm text-mute">Run of show for live events.</p>
+        <p className="text-sm text-mute">Run of show for live events. <span className="num whitespace-nowrap">v{APP_VERSION}</span></p>
       </div>
 
       <div className="hidden items-center border-l border-rule bg-desk px-12 lg:flex" aria-hidden="true">

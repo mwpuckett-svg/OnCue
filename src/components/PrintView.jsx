@@ -1,4 +1,5 @@
 import React from "react";
+import { APP_VERSION } from "../lib/version.js";
 import { catOf } from "../lib/theme.js";
 import { clockLabel, formatDateShort, secondsToMMSS, secondsToRuntimeLabel, timeStrToMinutes } from "../lib/scheduleUtils.js";
 
@@ -62,7 +63,7 @@ function Footer({ project, day }) {
   return (
     <div className="flex justify-between pt-3 text-[7.5pt] text-neutral-600">
       <span>{project.name} · {day.label}</span>
-      <span>Printed {stamp} · OnCue</span>
+      <span>Printed {stamp} · OnCue v{APP_VERSION}</span>
     </div>
   );
 }

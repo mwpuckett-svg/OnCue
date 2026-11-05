@@ -1,3 +1,4 @@
+import { APP_VERSION } from "../lib/version.js";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Plus, Download, Printer, ChevronDown, UserPlus, Users, Copy, Trash2 } from "lucide-react";
 import { catOf } from "../lib/theme.js";
@@ -450,6 +451,7 @@ export default function ShowPage({ data, user, onGoToProjects }) {
               <span>
                 {schedule.rows.length} {schedule.rows.length === 1 ? "cue" : "cues"} on {activeDay.label}. Changes sync to everyone on the crew as you make them.
               </span>
+              <span className="num">OnCue v{APP_VERSION}</span>
               {isAdmin && <Button variant="danger" size="sm" onClick={resetAll}>Reset show</Button>}
             </footer>
           </main>

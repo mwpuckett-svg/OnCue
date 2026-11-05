@@ -118,3 +118,15 @@ The installers aren't code-signed (signing costs money: $99 a year for Apple, a 
 
 - **Mac:** open the `.dmg`, drag OnCue to Applications, then right-click the app and choose **Open**, then **Open** again.
 - **Windows:** run the `.exe`. If a blue "Windows protected your PC" box appears, click **More info**, then **Run anyway**.
+
+## Version label
+
+Every update is labelled with the date and a running number for that day (for example `2026-11-05.1`, then `2026-11-05.2`; a new day starts again at 1). It shows on the sign-in screen, in the show page footer, and on the printed call sheet.
+
+Before shipping any update, run:
+
+```
+npm run bump
+```
+
+That updates `version.json`, which the build reads.
