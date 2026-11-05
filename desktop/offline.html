@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>OnCue</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html,body{height:100%;margin:0}
+  body{display:grid;place-items:center;background:#E7E8E2;color:#1E2A33;font:16px/1.5 -apple-system,"Segoe UI",system-ui,sans-serif}
+  main{max-width:26rem;padding:2rem}
+  h1{font-size:1.75rem;margin:0 0 .5rem}
+  p{margin:0 0 1.25rem;color:#4E5862}
+  button{font:inherit;font-weight:600;padding:.6rem 1.25rem;border:0;border-radius:8px;background:#1E2A33;color:#fff;cursor:pointer}
+</style></head>
+<body><main>
+  <h1>Can't reach OnCue</h1>
+  <p>Check your internet connection. This window tries again on its own every few seconds.</p>
+  <button id="retry">Try again</button>
+</main>
+<script>
+  var url = new URLSearchParams(location.search).get("url");
+  function go(){ if (url) location.href = url; }
+  document.getElementById("retry").onclick = go;
+  setInterval(function(){
+    if (!url) return;
+    fetch(url, { mode: "no-cors", cache: "no-store" }).then(go).catch(function(){});
+  }, 5000);
+</script></body></html>

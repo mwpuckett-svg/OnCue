@@ -22,6 +22,22 @@ export function minutesToTimeStr(min) {
   return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
 }
 
+/** Accepts "8:30a", "830", "5 pm", "17:00". Returns "HH:MM" or null. Without am/pm the input is read as 24-hour. */
+export function parseTimeInput(str) {
+  const m = String(str || "").trim().toLowerCase().replace(/\./g, "").match(/^(\d{1,2}):?(\d{2})?\s*([ap])?m?$/);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  if (min > 59) return null;
+  if (m[3]) {
+    if (h < 1 || h > 12) return null;
+    if (m[3] === "p" && h < 12) h += 12;
+    if (m[3] === "a" && h === 12) h = 0;
+  }
+  if (h > 23) return null;
+  return `${pad2(h)}:${pad2(min)}`;
+}
+
 export function mmssToSeconds(str) {
   if (str === "" || str == null) return null;
   const parts = String(str).split(":").map((s) => parseInt(s, 10));
@@ -90,10 +106,17 @@ export function formatNoteTime(ts) {
 export function computeSchedule(day, cues) {
   const startMin = timeStrToMinutes(day.startTime);
   let curSec = startMin * 60;
-  const rows = (cues || []).map((cue) => {
+  // When the stage manager has pressed GO, the live cue starts when they pressed it,
+  // and everything after it is re-flowed from there.
+  const liveIdx = day.liveCueId && day.liveStartedAt ? (cues || []).findIndex((c) => c.id === day.liveCueId) : -1;
+  const rows = (cues || []).map((cue, i) => {
     const durSec = cue.durationSec || 0;
     let startSec, status = null, driftSec = 0;
-    if (cue.locked && cue.lockedTime) {
+    if (i === liveIdx) {
+      const d = new Date(day.liveStartedAt);
+      startSec = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+      if (startSec < startMin * 60 - 6 * 3600) startSec += 86400; // show ran past midnight
+    } else if (cue.locked && cue.lockedTime) {
       const lockedSec = timeStrToMinutes(cue.lockedTime) * 60;
       driftSec = curSec - lockedSec;
       startSec = lockedSec;

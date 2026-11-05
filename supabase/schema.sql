@@ -90,6 +90,14 @@ create table if not exists cues (
   created_at timestamptz not null default now()
 );
 
+-- Live show state (the GO button): which cue is on now and when it started.
+alter table days add column if not exists live_cue_id uuid references cues(id) on delete set null;
+alter table days add column if not exists live_started_at timestamptz;
+
+-- Actual times, recorded as the stage manager presses GO.
+alter table cues add column if not exists actual_start timestamptz;
+alter table cues add column if not exists actual_end timestamptz;
+
 -- ---------------------------------------------------------------------------
 -- CUE NOTES (per-position note threads — replaces the old roleNotes blob)
 -- ---------------------------------------------------------------------------

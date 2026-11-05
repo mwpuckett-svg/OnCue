@@ -2,25 +2,147 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- Themes ----------
+   Desk: the printed rundown on a pale desk, for planning.
+   Booth: dimmed for calling a show in a dark room.
+   Values are space-separated RGB so Tailwind can apply alpha. */
+:root,
+html[data-theme="desk"] {
+  color-scheme: light;
+  --desk: 231 232 226;
+  --paper: 251 251 248;
+  --sunk: 242 243 238;
+  --ink: 30 42 51;
+  --mute: 78 88 98;
+  --faint: 108 116 124;
+  --rule: 208 211 203;
+  --rule-strong: 150 156 150;
+  --signal: 200 38 26;
+  --ok: 33 112 80;
+  --hold: 38 100 160;
+  --focus: 43 89 195;
+}
+
+html[data-theme="booth"] {
+  color-scheme: dark;
+  --desk: 24 27 30;
+  --paper: 32 37 41;
+  --sunk: 39 45 50;
+  --ink: 232 230 223;
+  --mute: 163 170 176;
+  --faint: 130 138 145;
+  --rule: 58 65 71;
+  --rule-strong: 100 109 116;
+  --signal: 255 118 96;
+  --ok: 100 198 154;
+  --hold: 120 178 234;
+  --focus: 141 180 255;
+}
+
+/* The one loud thing: the cue that is on right now swaps ink and paper. */
+html:not([data-theme="booth"]) .row-live {
+  --paper: 30 42 51; --sunk: 44 58 70; --ink: 251 251 248; --mute: 196 204 210; --faint: 160 170 178;
+  --rule: 78 92 104; --rule-strong: 120 134 146; --signal: 255 150 130; --ok: 130 214 176; --hold: 140 190 242;
+}
+html[data-theme="booth"] .row-live {
+  --paper: 232 230 223; --sunk: 220 218 210; --ink: 30 42 51; --mute: 64 74 84; --faint: 84 94 104;
+  --rule: 170 172 168; --rule-strong: 120 124 126; --signal: 184 28 16; --ok: 26 100 68; --hold: 28 84 140;
+}
+
 html, body, #root { height: 100%; }
-body { margin: 0; }
+body {
+  margin: 0;
+  background: rgb(var(--desk));
+  color: rgb(var(--ink));
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 1rem;
+  -webkit-font-smoothing: antialiased;
+}
 
-.ros-mono { font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums lining-nums; }
+.clock { font-weight: 600; font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.01em; }
 
-.ros-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-.ros-scrollbar::-webkit-scrollbar-thumb { background: #333A52; border-radius: 4px; }
+:focus-visible { outline: 2px solid rgb(var(--focus)); outline-offset: 2px; border-radius: 2px; }
+.row-live :focus-visible { outline-color: rgb(var(--focus)); }
+::selection { background: rgb(var(--focus) / 0.28); }
+::placeholder { color: rgb(var(--faint)); opacity: 1; }
 
-input[type="time"], input[type="date"], input[type="email"] { color-scheme: dark; }
-select { color-scheme: dark; }
+.scroll-thin::-webkit-scrollbar { width: 10px; height: 10px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgb(var(--rule-strong)); border: 3px solid rgb(var(--paper)); border-radius: 6px; }
 
-@keyframes ros-toast-in { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.ros-toast { animation: ros-toast-in 0.2s ease-out; }
+/* Inline fields look like text until you reach for them. */
+.field {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 2px;
+  padding: 3px 5px;
+  margin: 0 -5px;
+  box-shadow: inset 0 -1px 0 transparent;
+  font: inherit;
+}
+.field:hover { background: rgb(var(--ink) / 0.05); }
+.field:focus { background: rgb(var(--ink) / 0.07); outline: none; box-shadow: inset 0 -2px 0 rgb(var(--focus)); }
+.field-boxed {
+  background: rgb(var(--sunk));
+  border: 1px solid rgb(var(--rule));
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 0;
+  width: 100%;
+  color: rgb(var(--ink));
+  font: inherit;
+}
+.field-boxed:focus { outline: none; border-color: rgb(var(--focus)); box-shadow: 0 0 0 1px rgb(var(--focus)); }
 
-@keyframes ros-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-.ros-pulse { animation: ros-pulse 1.6s ease-in-out infinite; }
+/* ---------- Cue row layout ----------
+   Wide: one ruled table row. Narrow: time + name on top, details underneath. */
+.cue-row { display: grid; grid-template-columns: 5.5rem 1fr; grid-template-areas: "start name" "meta meta"; column-gap: 0.5rem; }
+.cue-row .a-idx, .cue-row .a-end { display: none; }
+.cue-row .a-start { grid-area: start; }
+.cue-row .a-name { grid-area: name; }
+.cue-row .a-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; padding-left: 6rem; }
+.cue-row .a-notes-open { grid-column: 1 / -1; }
 
-.ros-surface-btn:hover { background: rgba(255, 255, 255, 0.06); }
-.ros-danger-btn:hover { background: rgba(242, 73, 92, 0.12); color: #F2495C !important; }
-.ros-primary-btn:hover { opacity: 0.9; }
-.ros-insert:hover .ros-insert-line { opacity: 1; }
-.ros-insert:hover .ros-insert-btn { opacity: 1; }
+@media (min-width: 1100px) {
+  .cue-cols, .cue-row {
+    grid-template-columns: 3.25rem 6rem 5.25rem 4.25rem minmax(13rem, 1fr) 9rem 10rem 5.5rem 8.5rem;
+    grid-template-areas: "idx start end dur name cat owner notes act";
+    column-gap: 0.5rem;
+    align-items: center;
+  }
+  .cue-row .a-idx, .cue-row .a-end { display: block; }
+  .cue-row .a-meta { display: contents; padding: 0; }
+  .cue-row .a-dur { grid-area: dur; }
+  .cue-row .a-cat { grid-area: cat; }
+  .cue-row .a-owner { grid-area: owner; }
+  .cue-row .a-notes { grid-area: notes; }
+  .cue-row .a-act { grid-area: act; }
+  .cue-row .a-idx { grid-area: idx; }
+  .cue-row .a-end { grid-area: end; }
+}
+
+.cue-actions { opacity: 0; transition: opacity 80ms; }
+.cue-row:hover .cue-actions, .cue-row:focus-within .cue-actions { opacity: 1; }
+@media (hover: none) { .cue-actions { opacity: 1; } }
+
+.insert-slot .insert-btn { opacity: 0; }
+.insert-slot:hover .insert-btn, .insert-slot:focus-within .insert-btn { opacity: 1; }
+@media (hover: none) { .insert-slot { display: none; } }
+
+@keyframes drawer-in { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer { animation: drawer-in 140ms ease-out; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.scrim { animation: fade-in 120ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer, .scrim { animation: none; }
+  .cue-actions { transition: none; }
+}
+
+@media print {
+  html, body { background: #fff !important; }
+  .no-print { display: none !important; }
+}

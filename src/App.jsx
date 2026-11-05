@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import { useAuth } from "./hooks/useAuth.js";
 import { useProjects } from "./hooks/useProjects.js";
 import { useProjectData } from "./hooks/useProjectData.js";
-import { theme } from "./lib/theme.js";
 import { supabaseConfigured } from "./lib/supabase.js";
-import { LoadingBlock } from "./components/ui.jsx";
+import { LoadingBlock, ConfirmHost } from "./components/ui.jsx";
+import { ask } from "./lib/confirm.js";
 import LoginPage from "./pages/LoginPage.jsx";
 import ProjectsPage from "./pages/ProjectsPage.jsx";
 import ShowPage from "./pages/ShowPage.jsx";
@@ -16,20 +16,17 @@ function ShowPageContainer({ projectId, user, onGoToProjects }) {
 
 function ConfigError() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: theme.bg }}>
-      <div className="w-full max-w-md rounded-2xl p-6 sm:p-8" style={{ background: theme.panel, border: `1px solid ${theme.red}66` }}>
-        <h1 className="font-display font-semibold text-xl mb-2" style={{ color: theme.red }}>Configuration missing</h1>
-        <p className="text-sm mb-3" style={{ color: theme.textMuted }}>
-          This app can't reach Supabase yet. Check that a <code style={{ color: theme.amber }}>.env</code> file exists in the
-          project root (next to <code style={{ color: theme.amber }}>package.json</code>) with your real values:
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-lg border border-rule-strong bg-paper p-6 sm:p-8">
+        <h1 className="font-display text-3xl font-semibold leading-9">OnCue can't reach its database yet</h1>
+        <p className="mb-4 mt-2 text-mute">
+          Create a file named <code className="rounded-[2px] bg-sunk px-1">.env</code> in the project folder, next to <code className="rounded-[2px] bg-sunk px-1">package.json</code>, with your Supabase values:
         </p>
-        <pre className="text-xs rounded-lg p-3 mb-3 overflow-x-auto" style={{ background: theme.panelAlt, color: theme.text, border: `1px solid ${theme.hairline}` }}>
-{`VITE_SUPABASE_URL=https://your-ref.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key`}
-        </pre>
-        <p className="text-sm" style={{ color: theme.textMuted }}>
-          Then stop the dev server (<code style={{ color: theme.amber }}>Ctrl+C</code>) and run{" "}
-          <code style={{ color: theme.amber }}>npm run dev</code> again — Vite only reads <code style={{ color: theme.amber }}>.env</code> at startup.
+        <pre className="mb-4 overflow-x-auto border border-rule bg-sunk p-3 text-sm">{`VITE_SUPABASE_URL=https://your-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key`}</pre>
+        <p className="text-mute">
+          Then stop the dev server with <code className="rounded-[2px] bg-sunk px-1">Ctrl+C</code> and run <code className="rounded-[2px] bg-sunk px-1">npm run dev</code> again. Vite only reads <code className="rounded-[2px] bg-sunk px-1">.env</code> when it starts.
+          On Vercel, add the same two values under Settings, then Environment Variables, and redeploy.
         </p>
       </div>
     </div>
@@ -43,21 +40,27 @@ export default function App() {
 
   const handleDelete = async (id) => {
     const target = projects.find((p) => p.id === id);
-    if (!window.confirm(`Delete "${target ? target.name : "this show"}"? This removes its entire schedule and cannot be undone.`)) return;
+    const ok = await ask({
+      title: `Delete ${target?.name || "this show"}?`,
+      body: "Its days, cues, notes, positions and invites are all deleted. This can't be undone.",
+      confirmLabel: "Delete show", danger: true,
+    });
+    if (!ok) return;
     await deleteProject(id);
     if (currentProjectId === id) setCurrentProjectId(null);
   };
 
   return (
-    <div className="min-h-screen ros-scrollbar font-body" style={{ background: theme.bg, color: theme.text }}>
+    <div className="min-h-screen font-body">
+      <ConfirmHost />
       {!supabaseConfigured ? (
         <ConfigError />
       ) : authLoading ? (
-        <LoadingBlock text="Loading…" />
+        <LoadingBlock text="Loading" />
       ) : !user ? (
         <LoginPage sendCode={sendCode} verifyCode={verifyCode} />
       ) : projectsLoading ? (
-        <LoadingBlock text="Loading your shows…" />
+        <LoadingBlock text="Loading your shows" />
       ) : currentProjectId == null ? (
         <ProjectsPage
           projects={projects}

@@ -1,34 +1,29 @@
-export const theme = {
-  bg: "#0B0D12",
-  panel: "#141822",
-  panelAlt: "#1B2030",
-  hairline: "#262B3B",
-  hairlineLight: "#333A52",
-  text: "#F2F0EA",
-  textMuted: "#8A90A6",
-  textFaint: "#565D75",
-  amber: "#FFB23E",
-  green: "#34D399",
-  gold: "#FBBF24",
-  red: "#F2495C",
-  blueHold: "#38BDF8",
-};
-
+// Category markers are small squares, so they stay mid-tone and read on both themes.
 export const CATEGORIES = [
-  { key: "doors", label: "Doors", color: theme.red },
-  { key: "preshow", label: "Preshow", color: "#A3E635" },
-  { key: "segment", label: "Segment", color: theme.green },
-  { key: "speaker", label: "Speaker", color: "#A78BFA" },
-  { key: "performance", label: "Performance", color: theme.blueHold },
-  { key: "break", label: "Break", color: theme.gold },
-  { key: "transition", label: "Transition", color: "#94A3B8" },
-  { key: "vip", label: "VIP / Special", color: "#FB7185" },
+  { key: "doors", label: "Doors", color: "#C8452B" },
+  { key: "preshow", label: "Preshow", color: "#7C9A2D" },
+  { key: "segment", label: "Segment", color: "#2E8B6E" },
+  { key: "speaker", label: "Speaker", color: "#6B5BB5" },
+  { key: "performance", label: "Performance", color: "#2F7FB8" },
+  { key: "break", label: "Break", color: "#C99A1A" },
+  { key: "transition", label: "Transition", color: "#8A9199" },
+  { key: "vip", label: "VIP / Special", color: "#BE4B7A" },
 ];
 export const catOf = (key) => CATEGORIES.find((c) => c.key === key) || CATEGORIES[2];
 
+// Swatches offered when recoloring a crew position.
 export const PALETTE = [
-  theme.amber, theme.blueHold, theme.gold, "#A78BFA", theme.green,
-  "#FB7185", "#94A3B8", "#A3E635", theme.red, "#F472B6", "#60A5FA", "#FACC15",
+  "#C8452B", "#C99A1A", "#7C9A2D", "#2E8B6E", "#2F7FB8", "#6B5BB5",
+  "#BE4B7A", "#8A9199", "#D9772B", "#3E9AA8", "#4F6FD0", "#9A6B3F",
 ];
 
-export const GUEST_LABEL = "Guest / Client (view only)";
+export const GUEST_LABEL = "Guest / client (view only)";
+
+export function getTheme() {
+  return document.documentElement.getAttribute("data-theme") === "booth" ? "booth" : "desk";
+}
+export function setTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("oncue-theme", t); } catch (e) { /* storage can be blocked */ }
+}
+

@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
-import { theme } from "../lib/theme.js";
 import { formatNoteTime } from "../lib/scheduleUtils.js";
+import { IconBtn } from "./ui.jsx";
 
-function NoteThread({ notes, onAdd, onDelete, placeholder }) {
+function NoteThread({ notes, onAdd, onDelete, placeholder, label }) {
   const [text, setText] = useState("");
   const submit = () => {
     const t = text.trim();
@@ -14,83 +14,84 @@ function NoteThread({ notes, onAdd, onDelete, placeholder }) {
   return (
     <div>
       {notes.length > 0 && (
-        <div className="space-y-1.5 mb-1.5">
+        <ul className="mb-2 divide-y divide-rule/70">
           {notes.map((n) => (
-            <div key={n.id} className="rounded-md px-2 py-1.5 text-xs flex items-start justify-between gap-2" style={{ background: theme.panelAlt, border: `1px solid ${theme.hairline}` }}>
+            <li key={n.id} className="group flex items-start justify-between gap-2 py-1.5">
               <div className="min-w-0">
-                <div style={{ color: theme.text }}>{n.text}</div>
-                <div className="text-[10px] mt-0.5" style={{ color: theme.textFaint }}>
-                  {n.author || "Unnamed"}{n.ts ? ` · ${formatNoteTime(n.ts)}` : ""}
-                </div>
+                <p className="text-sm">{n.text}</p>
+                <p className="text-xs text-mute">{n.author || "Unnamed"}{n.ts ? `, ${formatNoteTime(n.ts)}` : ""}</p>
               </div>
-              <button onClick={() => onDelete(n.id)} className="shrink-0" style={{ color: theme.textFaint }}><X size={12} /></button>
-            </div>
+              <IconBtn onClick={() => onDelete(n.id)} title="Delete note" danger className="opacity-60 group-hover:opacity-100"><X size={13} /></IconBtn>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
           placeholder={placeholder}
-          className="flex-1 rounded-md px-2 py-1.5 text-xs outline-none"
-          style={{ background: theme.panel, color: theme.text, border: `1px solid ${theme.hairline}` }}
+          aria-label={label}
+          className="field-boxed !py-1.5 text-sm"
         />
-        <button onClick={submit} className="ros-surface-btn rounded-md px-2.5 text-xs font-semibold shrink-0 transition-colors" style={{ border: `1px solid ${theme.hairline}`, color: theme.textMuted }}>Add</button>
+        <button type="button" onClick={submit} className="h-[34px] shrink-0 rounded-btn border border-rule-strong px-3 text-sm font-medium transition-colors hover:bg-ink/5">Add</button>
       </div>
     </div>
   );
 }
 
-export default function NotesPanel({ cue, isAdmin, isGuest, myPosition, positions, authorName, onUpdate, onAddNote, onDeleteNote }) {
+function PositionHeading({ position, children }) {
   return (
-    <div className="mt-2 pt-2.5 pl-3 sm:pl-[104px] pr-1" style={{ borderTop: `1px dashed ${theme.hairline}` }}>
-      <div className="mb-2.5">
-        <div className="text-[10px] font-semibold tracking-wide uppercase mb-1" style={{ color: theme.textFaint }}>General note</div>
+    <h4 className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
+      <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: position?.color }} aria-hidden="true" />
+      {children}
+    </h4>
+  );
+}
+
+export default function NotesPanel({ cue, isAdmin, isGuest, myPosition, positions, onUpdate, onAddNote, onDeleteNote }) {
+  return (
+    <div className="mt-2.5 border-t border-rule pb-1 pt-3 min-[1100px]:pl-[3.75rem]">
+      <div className="mb-4 max-w-3xl">
+        <h4 className="mb-1 text-sm font-semibold">Everyone sees this</h4>
         {isAdmin ? (
           <input
             value={cue.notes}
             onChange={(e) => onUpdate({ notes: e.target.value })}
-            placeholder="Visible to everyone — staging, AV cues, context…"
-            className="bg-transparent outline-none text-xs w-full pb-1"
-            style={{ color: theme.textMuted, borderBottom: `1px solid ${theme.hairline}` }}
+            placeholder="Staging, AV, context for the whole crew"
+            aria-label="General note"
+            className="field-boxed text-sm"
           />
         ) : (
-          <p className="text-xs" style={{ color: cue.notes ? theme.textMuted : theme.textFaint }}>
-            {cue.notes || "No general note from the Stage Manager."}
-          </p>
+          <p className={`text-sm ${cue.notes ? "" : "text-mute"}`}>{cue.notes || "Nothing from the stage manager on this cue."}</p>
         )}
       </div>
 
       {isGuest ? null : isAdmin ? (
-        <div className="grid sm:grid-cols-2 gap-2.5 pb-1">
+        <div className="grid gap-x-8 gap-y-4 pb-2 md:grid-cols-2 xl:grid-cols-3">
           {positions.map((p) => (
             <div key={p.id}>
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase mb-1" style={{ color: p.color }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
-                {p.label}
-              </div>
+              <PositionHeading position={p}>{p.label}</PositionHeading>
               <NoteThread
                 notes={cue.roleNotes[p.id] || []}
                 onAdd={(text) => onAddNote(cue.id, p.id, text)}
-                onDelete={(id) => onDeleteNote(id)}
-                placeholder={`Add a ${p.label} note…`}
+                onDelete={onDeleteNote}
+                placeholder={`Note for ${p.label}`}
+                label={`Add a note for ${p.label}`}
               />
             </div>
           ))}
         </div>
       ) : myPosition ? (
-        <div className="pb-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase mb-1" style={{ color: myPosition.color }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: myPosition.color }} />
-            Your notes — {myPosition.label}
-          </div>
+        <div className="max-w-3xl pb-2">
+          <PositionHeading position={myPosition}>Your notes ({myPosition.label})</PositionHeading>
           <NoteThread
             notes={cue.roleNotes[myPosition.id] || []}
             onAdd={(text) => onAddNote(cue.id, myPosition.id, text)}
-            onDelete={(id) => onDeleteNote(id)}
-            placeholder="Only your position + the Stage Manager can see this…"
+            onDelete={onDeleteNote}
+            placeholder="Visible to you and the admins"
+            label="Add a note"
           />
         </div>
       ) : null}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase.js";
 import { PALETTE } from "../lib/theme.js";
+import { ask, notify } from "../lib/confirm.js";
 
 function assemble(positions, days, cues, notes) {
   const notesByCue = {};
@@ -15,6 +16,7 @@ function assemble(positions, days, cues, notes) {
     const cue = {
       id: c.id, name: c.name, category: c.category, durationSec: c.duration_sec,
       owner: c.owner, notes: c.notes, locked: c.locked, lockedTime: c.locked_time,
+      actualStart: c.actual_start ? Date.parse(c.actual_start) : null, actualEnd: c.actual_end ? Date.parse(c.actual_end) : null,
       sortOrder: c.sort_order, roleNotes,
     };
     if (!cuesByDay[c.day_id]) cuesByDay[c.day_id] = [];
@@ -27,6 +29,7 @@ function assemble(positions, days, cues, notes) {
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((d) => ({
       id: d.id, label: d.label, date: d.date || "", startTime: d.start_time, targetEnd: d.target_end,
+      liveCueId: d.live_cue_id || null, liveStartedAt: d.live_started_at ? Date.parse(d.live_started_at) : null,
       cues: cuesByDay[d.id] || [],
     }));
 
@@ -127,7 +130,7 @@ export function useProjectData(projectId, user) {
     if (!target) return;
     const adminCount = positions.filter((p) => p.is_admin).length;
     if (target.is_admin && adminCount <= 1) {
-      window.alert("At least one position needs to stay Admin. Make another position Admin first.");
+      notify("Keep at least one admin", "Make another position an admin first, then remove admin from this one.");
       return;
     }
     await supabase.from("positions").update({ is_admin: !target.is_admin }).eq("id", id);
@@ -139,10 +142,10 @@ export function useProjectData(projectId, user) {
     if (!pos) return;
     const adminCount = positions.filter((p) => p.is_admin).length;
     if (pos.is_admin && adminCount <= 1) {
-      window.alert("This is the only Admin position left. Make another position Admin before removing it.");
+      notify("This is the last admin position", "Make another position an admin before you remove this one.");
       return;
     }
-    if (!window.confirm(`Remove "${pos.label}"? Existing notes under this position will be deleted too.`)) return;
+    if (!(await ask({ title: `Remove ${pos.label}?`, body: "Notes written under this position are deleted with it.", confirmLabel: "Remove position", danger: true }))) return;
     await supabase.from("positions").delete().eq("id", id);
     refetch();
   }, [positions, refetch]);
@@ -166,10 +169,46 @@ export function useProjectData(projectId, user) {
     await supabase.from("days").update(dbPatch).eq("id", dayId);
   }, []);
 
+  /**
+   * GO button. Moves the live cue from one cue to another and records when each cue really started and ended.
+   * from: the cue being left. to: the cue being called (null ends the show).
+   * back: stepping backwards, so the cue being left goes back to "not run yet".
+   * reset: starting a fresh run, so every cue on the day forgets its old actual times.
+   */
+  const callCue = useCallback(async (dayId, { from = null, to = null, back = false, reset = false } = {}) => {
+    const now = Date.now();
+    const iso = new Date(now).toISOString();
+    setDays((prev) => prev.map((d) => {
+      if (d.id !== dayId) return d;
+      const cues = d.cues.map((c) => {
+        if (c.id === to) return { ...c, actualStart: now, actualEnd: null };
+        if (reset) return { ...c, actualStart: null, actualEnd: null };
+        if (c.id === from) return back ? { ...c, actualStart: null, actualEnd: null } : { ...c, actualEnd: now };
+        return c;
+      });
+      return { ...d, liveCueId: to, liveStartedAt: to ? now : null, cues };
+    }));
+
+    const results = [];
+    if (reset) results.push(await supabase.from("cues").update({ actual_start: null, actual_end: null }).eq("day_id", dayId));
+    const jobs = [
+      supabase.from("days").update({ live_cue_id: to, live_started_at: to ? iso : null }).eq("id", dayId),
+    ];
+    if (from && !reset) jobs.push(supabase.from("cues").update(back ? { actual_start: null, actual_end: null } : { actual_end: iso }).eq("id", from));
+    if (to) jobs.push(supabase.from("cues").update({ actual_start: iso, actual_end: null }).eq("id", to));
+    results.push(...(await Promise.all(jobs)));
+
+    const failed = results.find((r) => r.error);
+    if (failed) {
+      notify("GO couldn't save", `${failed.error.message}. If the message mentions live_cue_id, actual_start or actual_end, run the SQL files in supabase/migrations in the Supabase SQL editor once.`);
+      refetch();
+    }
+  }, [refetch]);
+
   const deleteDay = useCallback(async (dayId) => {
     if (days.length <= 1) return;
     const day = days.find((d) => d.id === dayId);
-    if (!window.confirm(`Delete "${day?.label}"? This removes all its cues and cannot be undone.`)) return;
+    if (!(await ask({ title: `Delete ${day?.label || "this day"}?`, body: "Every cue and note on this day is deleted. This can't be undone.", confirmLabel: "Delete day", danger: true }))) return;
     await supabase.from("days").delete().eq("id", dayId);
     refetch();
   }, [days, refetch]);
@@ -199,10 +238,11 @@ export function useProjectData(projectId, user) {
     // shift sort_order of cues at/after idx
     const toShift = day.cues.slice(idx);
     await Promise.all(toShift.map((c) => supabase.from("cues").update({ sort_order: c.sortOrder + 1 }).eq("id", c.id)));
-    await supabase.from("cues").insert({
-      day_id: dayId, sort_order: idx, name: "New Cue", category: "segment", duration_sec: 300,
+    const { error } = await supabase.from("cues").insert({
+      day_id: dayId, sort_order: idx, name: "New cue", category: "segment", duration_sec: 300,
       owner: "", notes: "", locked: false, locked_time: "",
     });
+    if (error) notify("Couldn't add the cue", `${error.message}. If this keeps happening, check that your position is an admin position.`);
     refetch();
   }, [days, refetch]);
 
@@ -295,7 +335,7 @@ export function useProjectData(projectId, user) {
   return {
     project, positions, days, invites, members, myMembership, loading, editingRef,
     updateShow, addPosition, renamePosition, recolorPosition, toggleAdminPosition, deletePosition,
-    addDay, updateDay, deleteDay, duplicateDay,
+    addDay, updateDay, deleteDay, duplicateDay, callCue,
     addCue, updateCue, deleteCue, duplicateCue, reorderCues,
     addNote, deleteNote, addInvite, removeInvite, joinProject, updateMyMembership,
   };

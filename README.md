@@ -76,3 +76,45 @@ This scaffold was built and checked before handoff:
   live Postgres instance yet, since this sandbox can't reach Supabase. You'll
   be the first real test of it — if something in the SQL Editor errors, paste
   it back here and I'll fix it.
+
+
+## Try the design without touching real data
+
+With the dev server running (`npm run dev`), open `http://localhost:5173/demo.html`. It loads sample data
+(the SC Vizio schedule) with no Supabase connection, so you can edit cues, add notes, switch the
+"View as" position at the bottom left, and flip between the desk and booth themes. Nothing is saved.
+The live cue follows your computer's clock, so it only highlights while the clock is inside the sample day.
+
+Add `?page=projects` for the shows list or `?page=login` for the sign-in screen.
+
+
+## Install as a desktop app
+
+OnCue is an installable web app (PWA). Once it is served over HTTPS (your Vercel site) or from localhost:
+
+- **Chrome or Edge:** click the install icon at the right end of the address bar, or open the browser menu and choose Install OnCue.
+- **Safari on Mac (Sonoma or later):** File, then Add to Dock.
+
+To try it locally before deploying: `npm run build`, then `npm run preview`, and open the address it prints (usually `http://localhost:4173`).
+The app shell is cached, but show data always comes live from Supabase, so you need a connection.
+
+## Desktop app (Mac and Windows)
+
+`desktop/` is a small Electron wrapper around the hosted app. It opens OnCue in its own window with its own icon, keeps the screen awake while you call a show, and shows a "Can't reach OnCue" screen with automatic retry if the internet drops. Because it loads the live site, every Vercel deploy reaches the desktop app with no new download.
+
+The installers are built for free on GitHub's cloud machines, so you don't need a Mac and a PC:
+
+1. Push this project to GitHub (including `.github/workflows/desktop.yml`).
+2. On GitHub, open the repo's **Actions** tab, choose **Desktop apps**, click **Run workflow**.
+3. After about 10 minutes, open the finished run and download **OnCue-macos-latest** (a `.dmg`) and **OnCue-windows-latest** (an `.exe`) from the Artifacts list.
+
+To publish them as a Release with permanent download links, push a tag instead: `git tag desktop-v1.0.0 && git push origin desktop-v1.0.0`.
+
+The app points at `https://on-cue-chi.vercel.app/`. To change it, edit `desktop/config.json`.
+
+To try it on your own machine: `cd desktop && npm install && npm start`.
+
+The installers aren't code-signed (signing costs money: $99 a year for Apple, a paid certificate for Windows), so each OS warns the first time:
+
+- **Mac:** open the `.dmg`, drag OnCue to Applications, then right-click the app and choose **Open**, then **Open** again.
+- **Windows:** run the `.exe`. If a blue "Windows protected your PC" box appears, click **More info**, then **Run anyway**.

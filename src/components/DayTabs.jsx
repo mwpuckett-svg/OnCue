@@ -1,36 +1,37 @@
 import React from "react";
 import { Plus } from "lucide-react";
-import { theme } from "../lib/theme.js";
 import { formatDateShort, todayLocalStr } from "../lib/scheduleUtils.js";
 
 export default function DayTabs({ days, activeDayId, onSelect, isAdmin, onAdd }) {
   const today = todayLocalStr();
   return (
-    <div className="flex items-end gap-1.5 overflow-x-auto ros-scrollbar pb-0.5">
+    <div role="tablist" aria-label="Show days" className="scroll-thin flex items-end gap-6 overflow-x-auto">
       {days.map((d) => {
         const active = d.id === activeDayId;
         return (
           <button
             key={d.id}
+            role="tab"
+            aria-selected={active}
             onClick={() => onSelect(d.id)}
-            className="shrink-0 rounded-t-lg px-3.5 py-2 text-left transition-colors"
-            style={{
-              background: active ? theme.panelAlt : "transparent",
-              border: `1px solid ${active ? theme.hairlineLight : "transparent"}`,
-              borderBottom: active ? `1px solid ${theme.panelAlt}` : "1px solid transparent",
-            }}
+            className={`-mb-px shrink-0 border-b-2 pb-2 pt-1 text-left transition-colors ${
+              active ? "border-ink text-ink" : "border-transparent text-mute hover:text-ink"
+            }`}
           >
-            <div className="text-xs font-semibold flex items-center gap-1.5" style={{ color: active ? theme.text : theme.textFaint }}>
-              {d.label}
-              {d.date === today && <span className="text-[9px] font-bold px-1 py-0.5 rounded" style={{ background: `${theme.green}22`, color: theme.green }}>TODAY</span>}
-            </div>
-            {d.date && <div className="text-[10px]" style={{ color: theme.textFaint }}>{formatDateShort(d.date)}</div>}
+            <span className="block font-display text-xl font-semibold leading-6">{d.label}</span>
+            <span className="block text-xs">
+              {d.date ? formatDateShort(d.date) : "No date"}
+              {d.date === today ? ", today" : ""}
+            </span>
           </button>
         );
       })}
       {isAdmin && (
-        <button onClick={onAdd} title="Add day" className="ros-surface-btn shrink-0 rounded-t-lg px-2.5 py-2" style={{ color: theme.textFaint, border: `1px solid ${theme.hairline}` }}>
-          <Plus size={14} />
+        <button
+          onClick={onAdd}
+          className="-mb-px inline-flex shrink-0 items-center gap-1 border-b-2 border-transparent pb-2 pt-1 text-sm text-mute transition-colors hover:text-ink"
+        >
+          <Plus size={14} /> Add day
         </button>
       )}
     </div>
