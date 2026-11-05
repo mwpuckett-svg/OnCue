@@ -47,19 +47,28 @@ export function useProjectData(projectId, user) {
 
   const refetch = useCallback(async () => {
     if (!projectId) return;
-    const [proj, pos, dayRows, cueRows, noteRows, inv, mem] = await Promise.all([
+    // Days first: cues and notes are filtered by day id rather than by embedding "days", because cues and
+    // days reference each other (days.live_cue_id) and PostgREST can't pick between the two relationships.
+    const [proj, pos, dayRows, inv, mem] = await Promise.all([
       supabase.from("projects").select("*").eq("id", projectId).single(),
       supabase.from("positions").select("*").eq("project_id", projectId).order("sort_order"),
       supabase.from("days").select("*").eq("project_id", projectId),
-      supabase.from("cues").select("*, days!inner(project_id)").eq("days.project_id", projectId),
-      supabase.from("cue_notes").select("*, cues!inner(day_id, days!inner(project_id))").eq("cues.days.project_id", projectId),
       supabase.from("invites").select("*").eq("project_id", projectId),
       supabase.from("project_members").select("*").eq("project_id", projectId),
     ]);
+    const dayList = dayRows.data || [];
+    const dayIds = dayList.map((d) => d.id);
+    const [cueRows, noteRows] = dayIds.length
+      ? await Promise.all([
+          supabase.from("cues").select("*").in("day_id", dayIds),
+          supabase.from("cue_notes").select("*, cues!inner(day_id)").in("cues.day_id", dayIds),
+        ])
+      : [{ data: [] }, { data: [] }];
+    if (cueRows.error || noteRows.error) console.error("OnCue: couldn't load cues", cueRows.error || noteRows.error);
     if (proj.data) setProject(proj.data);
     const posList = pos.data || [];
     setPositions(posList);
-    setDays(assemble(posList, dayRows.data || [], cueRows.data || [], noteRows.data || []));
+    setDays(assemble(posList, dayList, cueRows.data || [], noteRows.data || []));
     setInvites(inv.data || []);
     setMembers(mem.data || []);
   }, [projectId]);
