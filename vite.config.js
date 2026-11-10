@@ -3,12 +3,25 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { readFileSync } from "node:fs";
 
+// In `npm run dev` there is no Vercel, so serve /api/sheet from the same handler.
+const devApi = () => ({
+  name: "oncue-dev-api",
+  configureServer(server) {
+    server.middlewares.use("/api/sheet", async (req, res) => {
+      const { default: handler } = await server.ssrLoadModule("/api/sheet.js");
+      req.url = `/api/sheet${req.url === "/" ? "" : req.url}`;
+      handler(req, res);
+    });
+  },
+});
+
 const v = JSON.parse(readFileSync(new URL("./version.json", import.meta.url), "utf8"));
 const APP_VERSION = `${v.date}.${v.build}`;
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [
+    devApi(),
     react(),
     VitePWA({
       registerType: "autoUpdate",

@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase.js";
 import { PALETTE } from "../lib/theme.js";
 import { ask, notify } from "../lib/confirm.js";
+import { readSheet, planSync, resolveColumns, titleCaseHeader, hashText } from "../lib/sheetSync.js";
+import { fetchSheetCsv } from "../lib/sheetClient.js";
 
 function assemble(positions, days, cues, notes) {
   const notesByCue = {};
   for (const n of notes) {
     if (!notesByCue[n.cue_id]) notesByCue[n.cue_id] = [];
-    notesByCue[n.cue_id].push({ id: n.id, text: n.text, author: n.author_name, ts: n.created_at, positionId: n.position_id });
+    notesByCue[n.cue_id].push({ id: n.id, text: n.text, author: n.author_name, ts: n.created_at, positionId: n.position_id, fromSheet: !!n.from_sheet });
   }
   const cuesByDay = {};
   for (const c of cues) {
@@ -17,7 +19,7 @@ function assemble(positions, days, cues, notes) {
       id: c.id, name: c.name, category: c.category, durationSec: c.duration_sec,
       owner: c.owner, notes: c.notes, locked: c.locked, lockedTime: c.locked_time,
       actualStart: c.actual_start ? Date.parse(c.actual_start) : null, actualEnd: c.actual_end ? Date.parse(c.actual_end) : null,
-      sortOrder: c.sort_order, roleNotes,
+      sortOrder: c.sort_order, roleNotes, sheetKey: c.sheet_key || null, sheetSnapshot: c.sheet_snapshot || null,
     };
     if (!cuesByDay[c.day_id]) cuesByDay[c.day_id] = [];
     cuesByDay[c.day_id].push(cue);
@@ -30,6 +32,8 @@ function assemble(positions, days, cues, notes) {
     .map((d) => ({
       id: d.id, label: d.label, date: d.date || "", startTime: d.start_time, targetEnd: d.target_end,
       liveCueId: d.live_cue_id || null, liveStartedAt: d.live_started_at ? Date.parse(d.live_started_at) : null,
+      sheetId: d.sheet_id || null, sheetGid: d.sheet_gid || "0", sheetLengthFormat: d.sheet_length_format || "hm", sheetMap: d.sheet_map || {},
+      sheetStart: d.sheet_start || null, sheetHash: d.sheet_hash || null, sheetSyncedAt: d.sheet_synced_at ? Date.parse(d.sheet_synced_at) : null, sheetError: d.sheet_error || null,
       cues: cuesByDay[d.id] || [],
     }));
 
@@ -307,6 +311,178 @@ export function useProjectData(projectId, user) {
     await supabase.from("cue_notes").delete().eq("id", noteId);
   }, []);
 
+
+  /* ---- google sheet link ---- */
+  const daysRef = useRef(days);
+  daysRef.current = days;
+  const positionsRef = useRef(positions);
+  positionsRef.current = positions;
+  const busySheets = useRef(new Set());
+  const [sheetState, setSheetState] = useState({});
+  const markSheet = (dayId, patch) => setSheetState((prev) => ({ ...prev, [dayId]: { ...(prev[dayId] || {}), ...patch } }));
+
+  /**
+   * Pulls the day's Google Sheet into its cues. Safe to call from every admin's screen: the first one to see a new
+   * version of the sheet claims it in the database, and the others skip it.
+   * auto: a background refresh (never asks questions, holds back large deletions).
+   * force: apply even if the sheet looks unchanged (used when linking).
+   * override: day settings not saved yet (used while linking).
+   */
+  const syncSheet = useCallback(async (dayId, { auto = false, force = false, override = null, replaceExisting = false } = {}) => {
+    const found = daysRef.current.find((d) => d.id === dayId);
+    if (!found) return { status: "none" };
+    const day = { ...found, ...(override || {}) };
+    if (!day.sheetId || busySheets.current.has(dayId)) return { status: "none" };
+    busySheets.current.add(dayId);
+    markSheet(dayId, { checking: true });
+    const fail = async (message) => {
+      markSheet(dayId, { checking: false, error: message, checkedAt: Date.now() });
+      if (!auto) notify("Couldn't sync the sheet", message);
+      // Only write when the message is new, so a sheet that stays broken doesn't churn the database every refresh.
+      if (found.sheetError !== message) { await supabase.from("days").update({ sheet_error: message }).eq("id", dayId); refetch(); }
+      return { status: "error", message };
+    };
+    try {
+      let csv;
+      try { csv = await fetchSheetCsv(day.sheetId, day.sheetGid); } catch (e) { return await fail(e.message); }
+      const hash = hashText(csv);
+      if (!force && hash === day.sheetHash && !day.sheetError) {
+        markSheet(dayId, { checking: false, error: null, checkedAt: Date.now() });
+        return { status: "same" };
+      }
+
+      const parsed = readSheet(csv, { lengthFormat: day.sheetLengthFormat });
+      if (!parsed.ok) return await fail(parsed.error);
+      const hadSheetCues = day.cues.some((c) => c.sheetKey);
+      if (!parsed.cues.length && hadSheetCues) return await fail("The sheet has no cues in it right now, so nothing was changed.");
+
+      // The day as the plan should see it. When replacing, everything not yet run is cleared first.
+      const planDay = replaceExisting ? { ...day, cues: day.cues.filter((c) => c.actualStart) } : day;
+      const columns = resolveColumns(parsed.deptHeaders, positionsRef.current, day.sheetMap).map((c) => (c.action === "new" ? { ...c, positionId: `new:${c.header}` } : c));
+      const plan = planSync({ parsed, day: planDay, columns });
+
+      const keyedCount = day.cues.filter((c) => c.sheetKey).length;
+      if (!force && plan.remove.length && (plan.remove.length >= 5 && plan.remove.length > keyedCount / 2)) {
+        if (auto) return await fail(`${plan.remove.length} cues are missing from the sheet. Open Google Sheet and choose Sync now to review.`);
+        const ok = await ask({ title: `Remove ${plan.remove.length} cues?`, body: "They are no longer in the Google Sheet. Cues already run on the live show are kept.", confirmLabel: "Remove and sync", danger: true });
+        if (!ok) { markSheet(dayId, { checking: false }); return { status: "cancelled" }; }
+      } else if (!auto && !force && plan.remove.length) {
+        const ok = await ask({ title: `Remove ${plan.remove.length} ${plan.remove.length === 1 ? "cue" : "cues"}?`, body: "Not in the Google Sheet any more. Cues already run on the live show are kept.", confirmLabel: "Remove and sync", danger: true });
+        if (!ok) { markSheet(dayId, { checking: false }); return { status: "cancelled" }; }
+      }
+
+      // Claim this version of the sheet so two admins don't both apply it.
+      if (!force) {
+        const claim = await supabase.from("days").update({ sheet_hash: hash }).eq("id", dayId).or(`sheet_hash.is.null,sheet_hash.neq.${hash}`).select("id");
+        if (claim.error) return await fail(claim.error.message);
+        if (!claim.data || !claim.data.length) { markSheet(dayId, { checking: false, checkedAt: Date.now() }); return { status: "claimed-elsewhere" }; }
+      }
+
+      const results = [];
+
+      // Crew columns that don't match a position yet become new positions.
+      const map = { ...(day.sheetMap || {}) };
+      const created = {};
+      const toCreate = columns.filter((c) => c.action === "new");
+      for (let i = 0; i < toCreate.length; i++) {
+        const c = toCreate[i];
+        const label = titleCaseHeader(c.header);
+        const r = await supabase.from("positions").insert({
+          project_id: projectId, label, color: PALETTE[(positionsRef.current.length + i) % PALETTE.length], is_admin: false, sort_order: positionsRef.current.length + i,
+        }).select("id").single();
+        if (r.error) { await supabase.from("days").update({ sheet_hash: null }).eq("id", dayId); return await fail(r.error.message); }
+        created[`new:${c.header}`] = r.data.id;
+      }
+      columns.forEach((c) => { if (c.action === "skip") map[c.header] = "skip"; else map[c.header] = created[c.positionId] || c.positionId; });
+      const realPos = (pid) => created[pid] || pid;
+
+      if (replaceExisting) {
+        const ids = day.cues.filter((c) => !c.actualStart).map((c) => c.id);
+        if (ids.length) results.push(await supabase.from("cues").delete().in("id", ids));
+      }
+
+      // Cues
+      const idByKey = new Map(planDay.cues.filter((c) => c.sheetKey).map((c) => [c.sheetKey, c.id]));
+      if (plan.insert.length) {
+        const ins = await supabase.from("cues").upsert(
+          plan.insert.map((c) => ({
+            day_id: dayId, sort_order: c.sortOrder, name: c.name, category: "segment", duration_sec: c.durationSec,
+            owner: c.owner, notes: c.notes, locked: false, locked_time: "", sheet_key: c.key, sheet_snapshot: c.snapshot,
+          })),
+          { onConflict: "day_id,sheet_key" }
+        ).select("id, sheet_key");
+        results.push(ins);
+        (ins.data || []).forEach((r) => idByKey.set(r.sheet_key, r.id));
+      }
+      results.push(...(await Promise.all(plan.update.map((u) => supabase.from("cues").update(u.snapshot ? { ...u.patch, sheet_snapshot: u.snapshot } : u.patch).eq("id", u.id)))));
+      if (plan.remove.length) results.push(await supabase.from("cues").delete().in("id", plan.remove));
+
+      // Crew notes from the sheet's columns
+      const existingNotes = new Map();
+      planDay.cues.forEach((c) => Object.values(c.roleNotes || {}).flat().forEach((n) => {
+        if (!n.fromSheet) return;
+        const k = `${c.id}|${n.positionId}`;
+        existingNotes.set(k, [...(existingNotes.get(k) || []), n]);
+      }));
+      const delNotes = [];
+      const addNotes = [];
+      plan.noteWants.forEach((w) => {
+        const cueId = idByKey.get(w.cueKey);
+        const pid = realPos(w.positionId);
+        if (!cueId) return;
+        const have = existingNotes.get(`${cueId}|${pid}`) || [];
+        if (have.length === 1 && have[0].text === w.text) return;
+        have.forEach((n) => delNotes.push(n.id));
+        if (w.text) addNotes.push({ cue_id: cueId, position_id: pid, text: w.text, author_name: "Google Sheet", author_user_id: user?.id, from_sheet: true });
+      });
+      // Notes under cues that were removed or whose column is no longer mapped go away with them (cascade / below).
+      if (delNotes.length) results.push(await supabase.from("cue_notes").delete().in("id", delNotes));
+      if (addNotes.length) results.push(await supabase.from("cue_notes").insert(addNotes));
+
+      const failed = results.find((r) => r && r.error);
+      if (failed) {
+        await supabase.from("days").update({ sheet_hash: null }).eq("id", dayId);
+        return await fail(failed.error.message);
+      }
+
+      const now = new Date().toISOString();
+      const dayUpdate = await supabase.from("days").update({
+        ...plan.dayPatch, sheet_start: parsed.startTime || day.sheetStart || null, sheet_hash: hash, sheet_synced_at: now,
+        sheet_error: null, sheet_map: map,
+      }).eq("id", dayId);
+      if (dayUpdate.error) return await fail(dayUpdate.error.message);
+
+      markSheet(dayId, { checking: false, error: null, checkedAt: Date.now(), last: plan.summary });
+      await refetch();
+      return { status: "synced", summary: plan.summary, warnings: parsed.warnings };
+    } catch (e) {
+      return await fail(e.message || "Something went wrong while syncing.");
+    } finally {
+      busySheets.current.delete(dayId);
+    }
+  }, [projectId, user, refetch]);
+
+  const linkSheet = useCallback(async (dayId, { sheetId, sheetGid, lengthFormat, map = {}, replaceExisting = false }) => {
+    const settings = { sheetId, sheetGid: sheetGid || "0", sheetLengthFormat: lengthFormat, sheetMap: map, sheetHash: null, sheetStart: null, sheetError: null };
+    const { error } = await supabase.from("days").update({
+      sheet_id: sheetId, sheet_gid: sheetGid || "0", sheet_length_format: lengthFormat, sheet_map: map, sheet_hash: null, sheet_start: null, sheet_error: null,
+    }).eq("id", dayId);
+    if (error) {
+      notify("Couldn't link the sheet", `${error.message}. If it mentions a missing column, run supabase/migrations/004_google_sheet.sql in the Supabase SQL editor once.`);
+      return { status: "error" };
+    }
+    return syncSheet(dayId, { force: true, override: settings, replaceExisting });
+  }, [syncSheet]);
+
+  const unlinkSheet = useCallback(async (dayId) => {
+    await supabase.from("days").update({ sheet_id: null, sheet_gid: null, sheet_hash: null, sheet_start: null, sheet_error: null, sheet_synced_at: null, sheet_map: {} }).eq("id", dayId);
+    await supabase.from("cues").update({ sheet_key: null, sheet_snapshot: null }).eq("day_id", dayId);
+    const noteIds = daysRef.current.find((d) => d.id === dayId)?.cues.flatMap((c) => Object.values(c.roleNotes || {}).flat().filter((n) => n.fromSheet).map((n) => n.id)) || [];
+    if (noteIds.length) await supabase.from("cue_notes").update({ from_sheet: false }).in("id", noteIds);
+    markSheet(dayId, { error: null, checking: false });
+    refetch();
+  }, [refetch]);
+
   /* ---- invites ---- */
   const addInvite = useCallback(async (email, positionId, isGuest) => {
     await supabase.from("invites").upsert(
@@ -347,5 +523,6 @@ export function useProjectData(projectId, user) {
     addDay, updateDay, deleteDay, duplicateDay, callCue,
     addCue, updateCue, deleteCue, duplicateCue, reorderCues,
     addNote, deleteNote, addInvite, removeInvite, joinProject, updateMyMembership,
+    sheetState, syncSheet, linkSheet, unlinkSheet,
   };
 }

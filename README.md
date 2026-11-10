@@ -130,3 +130,13 @@ npm run bump
 ```
 
 That updates `version.json`, which the build reads.
+
+## Google Sheet link
+
+An admin can link a day to a public Google Sheet (**Google Sheet** button in the toolbar). The sheet's tab is read every ~30 seconds while an admin has the day open, and on **Sync now**.
+
+- Sheet access: General access must be *Anyone with the link (Viewer)*. The server function `api/sheet.js` fetches the tab's CSV (the browser can't read Google's export link directly).
+- Columns are matched by header name: `CUE` (row id), `TIME` (first one sets the day's start), `LENGTH`, `PROGRAM` (cue name; lines under the title become the presenter), `PRESENTER`, `NOTES`. Any other column to the right of the program column (AUDIO, VIDEO, GFX, ...) becomes crew notes for the position with the matching name, or a new position.
+- Rows are matched by CUE number (or program name), so reordering the sheet doesn't duplicate cues. A change made in OnCue stays until that cell changes in the sheet.
+- Needs `supabase/migrations/004_google_sheet.sql` run once in the Supabase SQL editor.
+- Tests: `node scripts/test-sheetSync.mjs` for the reader/planner, and `npx vite --config vite.sheettest.config.js --port 5198` serves `sheettest.html`, the real data hook on an in-memory database.
