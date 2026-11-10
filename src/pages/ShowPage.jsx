@@ -260,7 +260,7 @@ export default function ShowPage({ data, user, onGoToProjects }) {
         />
       )}
       {showInvitePanel && isAdmin && (
-        <InvitePanel invites={invites} positions={positions} onAdd={addInvite} onRemove={removeInvite} onClose={() => setShowInvitePanel(false)} />
+        <InvitePanel invites={invites} positions={positions} showName={project.name} onAdd={addInvite} onRemove={removeInvite} onClose={() => setShowInvitePanel(false)} />
       )}
       {showSheetPanel && isAdmin && linkSheetAvailable && (
         <SheetPanel
