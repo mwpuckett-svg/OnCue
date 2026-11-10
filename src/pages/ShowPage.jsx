@@ -1,6 +1,6 @@
 import { APP_VERSION } from "../lib/version.js";
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Plus, Download, Printer, ChevronDown, UserPlus, Users, Copy, Trash2 } from "lucide-react";
+import { Plus, Download, Printer, ChevronDown, UserPlus, Users, Copy, Trash2, Sheet } from "lucide-react";
 import { catOf } from "../lib/theme.js";
 import {
   formatDateShort, clockLabel, timeStrToMinutes, secondsToMMSS, secondsToRuntimeLabel,
@@ -12,6 +12,7 @@ import DayTabs from "../components/DayTabs.jsx";
 import CueRow from "../components/CueRow.jsx";
 import InvitePanel from "../components/InvitePanel.jsx";
 import PositionsPanel from "../components/PositionsPanel.jsx";
+import SheetPanel from "../components/SheetPanel.jsx";
 import JoinGate from "../components/JoinGate.jsx";
 import GoBar from "../components/GoBar.jsx";
 import PrintView from "../components/PrintView.jsx";
@@ -33,12 +34,14 @@ export default function ShowPage({ data, user, onGoToProjects }) {
     addDay, updateDay, deleteDay, duplicateDay, callCue,
     addCue, updateCue, deleteCue, duplicateCue, reorderCues,
     addNote, deleteNote, addInvite, removeInvite, joinProject, updateMyMembership,
+    sheetState = {}, syncSheet, linkSheet, unlinkSheet,
   } = data;
 
   const [activeDayId, setActiveDayId] = useState(null);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [showPositionsPanel, setShowPositionsPanel] = useState(false);
+  const [showSheetPanel, setShowSheetPanel] = useState(false);
   const [showSwitchGate, setShowSwitchGate] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const dragIndexRef = useRef(null);
@@ -57,6 +60,7 @@ export default function ShowPage({ data, user, onGoToProjects }) {
     return () => clearInterval(iv);
   }, []);
 
+  const linkSheetAvailable = !!linkSheet;
   const isAdmin = !!(myMembership && !myMembership.is_guest && positions.find((p) => p.id === myMembership.position_id)?.is_admin);
   const isGuest = !!(myMembership && myMembership.is_guest);
   const myPosition = myMembership && !myMembership.is_guest ? positions.find((p) => p.id === myMembership.position_id) : null;
@@ -64,6 +68,18 @@ export default function ShowPage({ data, user, onGoToProjects }) {
   const FALLBACK_DAY = { startTime: "18:00", targetEnd: "", cues: [] };
   const activeDay = days.find((d) => d.id === activeDayId) || days[0] || FALLBACK_DAY;
   const schedule = useMemo(() => computeSchedule(activeDay, activeDay.cues), [activeDay]);
+
+  // Google Sheet: while an admin has this day open, check the sheet about every 30 seconds and pull in changes.
+  const syncRef = useRef(syncSheet);
+  syncRef.current = syncSheet;
+  useEffect(() => {
+    if (!isAdmin || !activeDay.id || !activeDay.sheetId || !syncRef.current) return undefined;
+    const tick = () => { if (document.visibilityState === "visible") syncRef.current(activeDay.id, { auto: true }); };
+    tick();
+    const iv = setInterval(tick, 30000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", tick); };
+  }, [isAdmin, activeDay.id, activeDay.sheetId]);
 
   // ----- GO button -----
   const liveIdx = activeDay.liveCueId ? schedule.rows.findIndex((r) => r.id === activeDay.liveCueId) : -1;
@@ -246,6 +262,13 @@ export default function ShowPage({ data, user, onGoToProjects }) {
       {showInvitePanel && isAdmin && (
         <InvitePanel invites={invites} positions={positions} onAdd={addInvite} onRemove={removeInvite} onClose={() => setShowInvitePanel(false)} />
       )}
+      {showSheetPanel && isAdmin && linkSheetAvailable && (
+        <SheetPanel
+          day={activeDay} positions={positions} state={sheetState[activeDay.id]}
+          onLink={(opts) => linkSheet(activeDay.id, opts)} onUnlink={() => unlinkSheet(activeDay.id)}
+          onSync={(opts) => syncSheet(activeDay.id, opts)} onClose={() => setShowSheetPanel(false)}
+        />
+      )}
       {showPositionsPanel && isAdmin && (
         <PositionsPanel positions={positions} onAdd={addPosition} onRename={renamePosition} onRecolor={recolorPosition} onToggleAdmin={toggleAdminPosition} onDelete={deletePosition} onClose={() => setShowPositionsPanel(false)} />
       )}
@@ -354,6 +377,13 @@ export default function ShowPage({ data, user, onGoToProjects }) {
                 )}
                 {isAdmin && <Button onClick={() => setShowPositionsPanel(true)}><Users size={14} /> Crew positions</Button>}
                 {isAdmin && <Button onClick={() => setShowInvitePanel(true)}><UserPlus size={14} /> Invites{invites.length > 0 ? ` (${invites.length})` : ""}</Button>}
+                {isAdmin && linkSheetAvailable && (
+                  <Button onClick={() => setShowSheetPanel(true)} title={activeDay.sheetError || undefined}>
+                    <Sheet size={14} /> Google Sheet
+                    {activeDay.sheetId && <span aria-hidden="true" className={`ml-0.5 h-1.5 w-1.5 rounded-full ${activeDay.sheetError ? "bg-signal" : "bg-ok"}`} />}
+                    {activeDay.sheetId && <span className="sr-only">{activeDay.sheetError ? "has a problem" : "linked"}</span>}
+                  </Button>
+                )}
               </div>
               <div className="flex items-center gap-1 sm:ml-auto">
                 <Button onClick={exportCSV}><Download size={14} /> Export CSV</Button>
