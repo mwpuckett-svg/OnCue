@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Trash2, LogOut, Plus } from "lucide-react";
-import { Button, IconBtn, ThemeToggle } from "../components/ui.jsx";
+import { Button, IconBtn, ThemeToggle, UpdateButton } from "../components/ui.jsx";
 import { todayLocalStr, formatDateShort } from "../lib/scheduleUtils.js";
 
 function ShowList({ title, shows, onOpen, onDelete }) {
@@ -63,6 +63,7 @@ export default function ProjectsPage({ projects, onOpen, onCreate, onDelete, onS
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <Button variant="quiet" size="sm" onClick={onSignOut}><LogOut size={13} /> Sign out ({userEmail})</Button>
+          <UpdateButton />
         </div>
       </header>
 

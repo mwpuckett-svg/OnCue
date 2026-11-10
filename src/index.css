@@ -19,6 +19,7 @@ html[data-theme="desk"] {
   --rule-strong: 150 156 150;
   --signal: 200 38 26;
   --ok: 33 112 80;
+  --warn: 245 190 40;
   --hold: 38 100 160;
   --focus: 43 89 195;
 }
@@ -35,6 +36,7 @@ html[data-theme="booth"] {
   --rule-strong: 100 109 116;
   --signal: 255 118 96;
   --ok: 100 198 154;
+  --warn: 250 204 70;
   --hold: 120 178 234;
   --focus: 141 180 255;
 }

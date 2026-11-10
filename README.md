@@ -123,13 +123,13 @@ The installers aren't code-signed (signing costs money: $99 a year for Apple, a 
 
 Every update is labelled with the date and a running number for that day (for example `2026-11-05.1`, then `2026-11-05.2`; a new day starts again at 1). It shows on the sign-in screen, in the show page footer, and on the printed call sheet.
 
-Before shipping any update, run:
+Before shipping any update, run this with a plain-words note for each change:
 
 ```
-npm run bump
+npm run bump -- "Fixed the print layout" "Added a Sheet button"
 ```
 
-That updates `version.json`, which the build reads.
+That updates `version.json` and adds the notes to `changelog.json`. The build publishes both as `/version.json`, which the **Update** button in the top right reads: green when the running copy is the newest version, yellow when a newer one is out. Clicking yellow lists the notes for every version since the one you're on, then reloads on "Update now".
 
 ## Google Sheet link
 

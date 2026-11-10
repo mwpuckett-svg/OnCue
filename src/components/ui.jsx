@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Plus, Sun, Moon } from "lucide-react";
+import { X, Plus, Sun, Moon, Check, RefreshCw } from "lucide-react";
 import { getTheme, setTheme } from "../lib/theme.js";
 import { registerConfirm } from "../lib/confirm.js";
+import { useAppUpdate } from "../hooks/useAppUpdate.js";
 import { clockLabel, timeStrToMinutes, parseTimeInput } from "../lib/scheduleUtils.js";
 
 /* ---------- Buttons ---------- */
@@ -80,8 +81,63 @@ export function ThemeToggle() {
   return (
     <Button variant="quiet" size="sm" onClick={flip} title={booth ? "Switch to the light desk theme" : "Switch to the dark booth theme"}>
       {booth ? <Sun size={14} /> : <Moon size={14} />}
-      {booth ? "Desk" : "Booth"}
+      <span className="max-sm:sr-only">{booth ? "Desk" : "Booth"}</span>
     </Button>
+  );
+}
+
+/* ---------- Update button: green when this is the newest version, yellow when a newer one is out ---------- */
+
+export function UpdateButton() {
+  const { current, latest, available, notes, checking, check, install } = useAppUpdate();
+  const [justChecked, setJustChecked] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const onClick = async () => {
+    if (available) { setOpen(true); return; }
+    await check();
+    setJustChecked(true);
+    setTimeout(() => setJustChecked(false), 2500);
+  };
+  const doInstall = () => { setInstalling(true); install(); };
+
+  const label = installing ? "Updating" : available ? "Update available" : checking ? "Checking" : justChecked ? "Up to date, just checked" : "Up to date";
+  const title = available
+    ? `OnCue ${latest} is ready. You're on ${current}. Click to update.`
+    : `You're on the newest version (${current}). Click to check again.`;
+  return (
+    <>
+    {open && available && (
+      <Dialog title="Update OnCue" subtitle={`You're on ${current}. The newest version is ${latest}.`} onClose={() => setOpen(false)} dismissable={!installing}>
+        <div className="text-sm font-medium">What this update does</div>
+        <div className="scroll-thin mt-2 max-h-72 space-y-4 overflow-y-auto">
+          {notes.length ? notes.map((e) => (
+            <section key={e.version}>
+              <h3 className="clock num text-xs text-mute">{e.version}</h3>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">
+                {e.notes.map((n) => <li key={n}>{n}</li>)}
+              </ul>
+            </section>
+          )) : <p className="text-sm text-mute">Fixes and improvements.</p>}
+        </div>
+        <p className="mt-4 text-xs text-mute">The page reloads to finish. Your show, cues and notes are saved and stay as they are.</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="quiet" onClick={() => setOpen(false)} disabled={installing}>Not now</Button>
+          <Button variant="primary" onClick={doInstall} disabled={installing}>{installing ? "Updating" : "Update now"}</Button>
+        </div>
+      </Dialog>
+    )}
+    <button
+      type="button" onClick={onClick} title={title} aria-live="polite" disabled={installing}
+      className={`no-print inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-btn px-2.5 text-xs font-semibold transition-colors ${
+        available ? "bg-warn text-[rgb(30_42_51)] hover:brightness-95" : "bg-ok text-paper hover:brightness-110"
+      }`}
+    >
+      {available ? <RefreshCw size={13} className={installing ? "animate-spin" : ""} /> : <Check size={13} strokeWidth={2.5} />}
+      <span className="max-sm:sr-only">{label}</span>
+    </button>
+    </>
   );
 }
 

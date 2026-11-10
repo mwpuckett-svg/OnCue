@@ -16,6 +16,7 @@ export default {
         "rule-strong": v("rule-strong"),
         signal: v("signal"),
         ok: v("ok"),
+        warn: v("warn"),
         hold: v("hold"),
         focus: v("focus"),
       },

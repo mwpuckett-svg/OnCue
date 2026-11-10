@@ -15,6 +15,17 @@ const devApi = () => ({
   },
 });
 
+// Publishes the build's version and recent change notes next to the app, so a running copy can tell when a newer one
+// is out and show what's in it.
+const versionFile = (version) => ({
+  name: "oncue-version-file",
+  generateBundle() {
+    let changelog = [];
+    try { changelog = JSON.parse(readFileSync(new URL("./changelog.json", import.meta.url), "utf8")).slice(-30); } catch { /* no notes yet */ }
+    this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ version, changelog }) });
+  },
+});
+
 const v = JSON.parse(readFileSync(new URL("./version.json", import.meta.url), "utf8"));
 const APP_VERSION = `${v.date}.${v.build}`;
 
@@ -22,6 +33,7 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [
     devApi(),
+    versionFile(APP_VERSION),
     react(),
     VitePWA({
       registerType: "autoUpdate",

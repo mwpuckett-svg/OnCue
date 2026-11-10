@@ -7,7 +7,7 @@ import {
   computeSchedule, todayLocalStr, formatNoteTime,
 } from "../lib/scheduleUtils.js";
 import { ask } from "../lib/confirm.js";
-import { Button, IconBtn, LoadingBlock, InsertSlot, TimeField, ThemeToggle } from "../components/ui.jsx";
+import { Button, IconBtn, LoadingBlock, InsertSlot, TimeField, ThemeToggle, UpdateButton } from "../components/ui.jsx";
 import DayTabs from "../components/DayTabs.jsx";
 import CueRow from "../components/CueRow.jsx";
 import InvitePanel from "../components/InvitePanel.jsx";
@@ -287,17 +287,18 @@ export default function ShowPage({ data, user, onGoToProjects }) {
         >
           {/* App bar */}
           <div className="no-print mx-auto flex max-w-[1360px] items-center justify-between gap-3 px-4 py-2 sm:px-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <span className="font-display text-[1.375rem] font-bold leading-none">OnCue</span>
-              <button onClick={onGoToProjects} className="text-sm text-mute underline-offset-4 transition-colors hover:text-ink hover:underline">All shows</button>
+              <button onClick={onGoToProjects} className="whitespace-nowrap text-sm text-mute underline-offset-4 transition-colors hover:text-ink hover:underline">All shows</button>
             </div>
             <div className="flex items-center gap-1">
               <Button variant="quiet" size="sm" onClick={() => setShowSwitchGate(true)} aria-label="Change your position">
                 <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: isGuest ? "rgb(var(--faint))" : myPosition?.color || "rgb(var(--faint))" }} aria-hidden="true" />
-                {roleLabel}
+                <span className="max-sm:max-w-[6.5rem] max-sm:truncate">{roleLabel}</span>
                 <ChevronDown size={13} />
               </Button>
               <ThemeToggle />
+              <UpdateButton />
             </div>
           </div>
 
