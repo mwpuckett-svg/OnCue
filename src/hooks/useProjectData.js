@@ -485,12 +485,30 @@ export function useProjectData(projectId, user) {
 
   /* ---- invites ---- */
   const addInvite = useCallback(async (email, positionId, isGuest) => {
-    await supabase.from("invites").upsert(
+    const { data } = await supabase.from("invites").upsert(
       { project_id: projectId, email, position_id: isGuest ? null : positionId, is_guest: !!isGuest },
       { onConflict: "project_id,email" }
-    );
+    ).select("id").maybeSingle();
     refetch();
+    return data?.id || null;
   }, [projectId, refetch]);
+
+  // Asks the server to email the invite (api/send-invite.js). Resolves to { ok } or { ok: false, error, message }.
+  const sendInviteEmail = useCallback(async (inviteId) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const r = await fetch("/api/send-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+        body: JSON.stringify({ inviteId }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (r.ok && body.ok) return { ok: true };
+      return { ok: false, error: body.error || "failed", message: body.message || "The email couldn't be sent." };
+    } catch {
+      return { ok: false, error: "network", message: "Couldn't reach the server. Check the connection and try again." };
+    }
+  }, []);
 
   const removeInvite = useCallback(async (inviteId) => {
     await supabase.from("invites").delete().eq("id", inviteId);
@@ -522,7 +540,7 @@ export function useProjectData(projectId, user) {
     updateShow, addPosition, renamePosition, recolorPosition, toggleAdminPosition, deletePosition,
     addDay, updateDay, deleteDay, duplicateDay, callCue,
     addCue, updateCue, deleteCue, duplicateCue, reorderCues,
-    addNote, deleteNote, addInvite, removeInvite, joinProject, updateMyMembership,
+    addNote, deleteNote, addInvite, sendInviteEmail, removeInvite, joinProject, updateMyMembership,
     sheetState, syncSheet, linkSheet, unlinkSheet,
   };
 }

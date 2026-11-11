@@ -140,3 +140,14 @@ An admin can link a day to a public Google Sheet (**Google Sheet** button in the
 - Rows are matched by CUE number (or program name), so reordering the sheet doesn't duplicate cues. A change made in OnCue stays until that cell changes in the sheet.
 - Needs `supabase/migrations/004_google_sheet.sql` run once in the Supabase SQL editor.
 - Tests: `node scripts/test-sheetSync.mjs` for the reader/planner, and `npx vite --config vite.sheettest.config.js --port 5198` serves `sheettest.html`, the real data hook on an in-memory database.
+
+## Automatic invite emails
+
+Adding an invite emails the person right away through `api/send-invite.js` (Gmail SMTP). One-time setup in Vercel
+(Project > Settings > Environment Variables), then redeploy:
+
+- `GMAIL_USER` - the Gmail address that sends the invites
+- `GMAIL_APP_PASSWORD` - a Google app password for that address
+
+Until these are set the invite panel says so and offers a "Use my mail" fallback. Only show admins can send, and only to
+addresses already on that show's invite list. Test: `node scripts/test-sendInvite.mjs`.

@@ -80,7 +80,21 @@ function Preview() {
     deleteNote: (noteId) => inAnyDay((s) => s.map((c) => ({ ...c, roleNotes: Object.fromEntries(Object.entries(c.roleNotes).map(([k, v]) => [k, v.filter((x) => x.id !== noteId)])) }))),
     invites, members: [], loading: false, editingRef,
     myMembership: role === "none" ? null : { position_id: role === "guest" ? null : role, is_guest: role === "guest", display_name: "Mike" },
-    addInvite: (email, positionId, isGuest) => setInvites((x) => (x.some((i) => i.email === email) ? x : [...x, { id: "i" + n.current++, email, position_id: positionId, is_guest: isGuest }])),
+    addInvite: async (email, positionId, isGuest) => {
+      const existing = invites.find((i) => i.email === email);
+      if (existing) return existing.id;
+      const id = "i" + n.current++;
+      setInvites((x) => [...x, { id, email, position_id: positionId, is_guest: isGuest }]);
+      return id;
+    },
+    // Pretend mail server. ?mail=fail or ?mail=unconfigured shows the error states.
+    sendInviteEmail: async () => {
+      await new Promise((r) => setTimeout(r, 150));
+      const mode = new URLSearchParams(location.search).get("mail");
+      if (mode === "unconfigured") return { ok: false, error: "not-configured", message: "Automatic email isn't set up yet. Use your own mail for now." };
+      if (mode === "fail") return { ok: false, error: "send-failed", message: "The email couldn't be sent. Try again in a moment." };
+      return { ok: true };
+    },
     removeInvite: (id) => setInvites((x) => x.filter((i) => i.id !== id)),
     addPosition: (label) => setPositions((x) => [...x, { id: "p" + n.current++, label, color: PALETTE[x.length % PALETTE.length], is_admin: false, sort_order: x.length }]),
     renamePosition: (id, label) => setPositions((x) => x.map((p) => (p.id === id ? { ...p, label } : p))),

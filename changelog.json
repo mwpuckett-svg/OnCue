@@ -25,5 +25,11 @@
     "notes": [
       "Invites: the button now says Add invite, and each invite has an Email button that opens a ready-to-send message (show, position, link, sign-in steps) plus a Copy button"
     ]
+  },
+  {
+    "version": "2026-11-11.1",
+    "notes": [
+      "Invites are now emailed automatically when you add them, with Resend and Retry buttons"
+    ]
   }
 ]
