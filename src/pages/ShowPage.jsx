@@ -33,7 +33,7 @@ export default function ShowPage({ data, user, onGoToProjects }) {
     updateShow, addPosition, renamePosition, recolorPosition, toggleAdminPosition, deletePosition,
     addDay, updateDay, deleteDay, duplicateDay, callCue,
     addCue, updateCue, deleteCue, duplicateCue, reorderCues,
-    addNote, deleteNote, addInvite, removeInvite, joinProject, updateMyMembership,
+    addNote, deleteNote, addInvite, sendInviteEmail, removeInvite, joinProject, updateMyMembership,
     sheetState = {}, syncSheet, linkSheet, unlinkSheet,
   } = data;
 
@@ -260,7 +260,7 @@ export default function ShowPage({ data, user, onGoToProjects }) {
         />
       )}
       {showInvitePanel && isAdmin && (
-        <InvitePanel invites={invites} positions={positions} showName={project.name} onAdd={addInvite} onRemove={removeInvite} onClose={() => setShowInvitePanel(false)} />
+        <InvitePanel invites={invites} positions={positions} showName={project.name} onAdd={addInvite} onSendEmail={sendInviteEmail} onRemove={removeInvite} onClose={() => setShowInvitePanel(false)} />
       )}
       {showSheetPanel && isAdmin && linkSheetAvailable && (
         <SheetPanel

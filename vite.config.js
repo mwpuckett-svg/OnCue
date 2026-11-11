@@ -7,6 +7,10 @@ import { readFileSync } from "node:fs";
 const devApi = () => ({
   name: "oncue-dev-api",
   configureServer(server) {
+    server.middlewares.use("/api/send-invite", async (req, res) => {
+      const { default: handler } = await server.ssrLoadModule("/api/send-invite.js");
+      handler(req, res);
+    });
     server.middlewares.use("/api/sheet", async (req, res) => {
       const { default: handler } = await server.ssrLoadModule("/api/sheet.js");
       req.url = `/api/sheet${req.url === "/" ? "" : req.url}`;
