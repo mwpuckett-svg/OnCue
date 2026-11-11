@@ -1,14 +1,29 @@
 [
-  { "version": "2026-11-05.3", "notes": [
-    "Every update now carries a version label: the date plus a running number, shown on the sign-in screen, the show page footer and the printed call sheet.",
-    "Fixed Add cue: new cues were being saved but not showing up on screen."
-  ] },
-  { "version": "2026-11-10.1", "notes": [
-    "Link a day to a public Google Sheet. The Google Sheet button reads cue names, lengths, presenters, notes and crew columns, and refreshes by itself about every 30 seconds.",
-    "Crew columns such as Audio, Video and Lighting become notes for the matching crew positions."
-  ] },
-  { "version": "2026-11-10.2", "notes": [
-    "New Update button in the top right corner. Green means you're on the newest version. Yellow means an update is ready.",
-    "Clicking the yellow button shows what's new before you update."
-  ] }
+  {
+    "version": "2026-11-05.3",
+    "notes": [
+      "Every update now carries a version label: the date plus a running number, shown on the sign-in screen, the show page footer and the printed call sheet.",
+      "Fixed Add cue: new cues were being saved but not showing up on screen."
+    ]
+  },
+  {
+    "version": "2026-11-10.1",
+    "notes": [
+      "Link a day to a public Google Sheet. The Google Sheet button reads cue names, lengths, presenters, notes and crew columns, and refreshes by itself about every 30 seconds.",
+      "Crew columns such as Audio, Video and Lighting become notes for the matching crew positions."
+    ]
+  },
+  {
+    "version": "2026-11-10.2",
+    "notes": [
+      "New Update button in the top right corner. Green means you're on the newest version. Yellow means an update is ready.",
+      "Clicking the yellow button shows what's new before you update."
+    ]
+  },
+  {
+    "version": "2026-11-10.3",
+    "notes": [
+      "Invites: the button now says Add invite, and each invite has an Email button that opens a ready-to-send message (show, position, link, sign-in steps) plus a Copy button"
+    ]
+  }
 ]
